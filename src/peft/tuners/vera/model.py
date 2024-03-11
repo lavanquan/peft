@@ -61,25 +61,25 @@ class VeraModel(LoraModel):
 
     # Note: don't redefine prefix here, it should be inherited from LoraModel
 
-    def __init__(self, model, config, adapter_name):
-        super().__init__(model, config, adapter_name)
+    # def __init__(self, model, config, adapter_name):
+    #     super().__init__(model, config, adapter_name)
 
-        traininable_mode_counter = 0
-        for config in self.peft_config.values():
-            if not config.inference_mode:
-                traininable_mode_counter += 1
+    #     traininable_mode_counter = 0
+    #     for config in self.peft_config.values():
+    #         if not config.inference_mode:
+    #             traininable_mode_counter += 1
 
-        if traininable_mode_counter > 1:
-            raise ValueError(
-                "VeraModel supports only 1 trainable adapter. "
-                "When using multiple adapters, set inference_mode to True for all adapters except the one you want to train."
-            )
+    #     if traininable_mode_counter > 1:
+    #         raise ValueError(
+    #             "VeraModel supports only 1 trainable adapter. "
+    #             "When using multiple adapters, set inference_mode to True for all adapters except the one you want to train."
+    #         )
 
-        if self.peft_config[adapter_name].inference_mode:
-            _freeze_adapter(self.model, adapter_name)
-        else:
-            self.trainable_adapter_name = adapter_name
-            # self.rankallocator = RankAllocator(self.model, self.peft_config[adapter_name], self.trainable_adapter_name)
+    #     if self.peft_config[adapter_name].inference_mode:
+    #         _freeze_adapter(self.model, adapter_name)
+    #     else:
+    #         self.trainable_adapter_name = adapter_name
+    #         # self.rankallocator = RankAllocator(self.model, self.peft_config[adapter_name], self.trainable_adapter_name)
 
     def _check_new_adapter_config(self, config: LoraConfig) -> None:
         """

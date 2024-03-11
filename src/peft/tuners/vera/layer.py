@@ -51,7 +51,7 @@ class VeraLayer(LoraLayer):
         self.lora_dropout[adapter_name] = lora_dropout_layer
         # Actual trainable parameters
         # Right singular vectors
-        std_dev = 1./torch.sqrt(torch.tensor(r).float())
+        std_dev = 1./torch.sqrt(torch.tensor(self.r[adapter_name]).float())
         self.lora_A[adapter_name] = nn.Parameter(torch.normal(size=(r, self.in_features), mean=0, std=std_dev), requires_grad=False)
         # Singular values
         # self.lora_E[adapter_name] = nn.Parameter(torch.randn(r, 1))

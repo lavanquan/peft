@@ -26,7 +26,7 @@ from peft.utils import transpose
 class VeraLayer(LoraLayer):
     # List all names of layers that may contain adapter weights
     # Note: ranknum doesn't need to be included as it is not an nn.Module
-    adapter_layer_names = ("lora_A", "lora_B", "lora_d", "lora_b", "lora_embedding_A", "lora_embedding_B")
+    adapter_layer_names = ("lora_d", "lora_b", "lora_embedding_A", "lora_embedding_B")
     # other_param_names is defined in LoraLayer
 
     def __init__(self, base_layer: nn.Module) -> None:
@@ -59,8 +59,8 @@ class VeraLayer(LoraLayer):
         # Left singular vectors
         self.lora_B[adapter_name] = nn.Parameter(torch.normal(size=(self.out_features, r), mean=0, std=std_dev), requires_grad=False)
         self.lora_b[adapter_name] = nn.Parameter(torch.zeros(1, r))
-        self.lora_A[adapter_name].requires_grad = False
-        self.lora_B[adapter_name].requires_grad = False
+        self.lora_A[adapter_name].requires_grad_(False)
+        self.lora_B[adapter_name].requires_grad_(False)
         # The current rank
         # self.ranknum[adapter_name] = nn.Parameter(torch.randn(1), requires_grad=False)
         # self.ranknum[adapter_name].data.fill_(float(r))
@@ -79,11 +79,11 @@ class VeraLayer(LoraLayer):
     def reset_lora_parameters(self, adapter_name):
         if adapter_name in self.lora_A.keys():
             std_dev = 1./torch.sqrt(torch.tensor(self.r[adapter_name]).float())
-            # # nn.init.normal_(self.lora_E[adapter_name], mean=0.0, std=0.02)
-            # nn.init.normal_(self.lora_A[adapter_name], mean=0.0, std=std_dev)
-            # self.lora_A[adapter_name].requires_grad = False
-            # nn.init.normal_(self.lora_B[adapter_name], mean=0.0, std=std_dev)
-            # self.lora_B[adapter_name].requires_grad = False
+            # nn.init.normal_(self.lora_E[adapter_name], mean=0.0, std=0.02)
+            nn.init.normal_(self.lora_A[adapter_name], mean=0.0, std=std_dev)
+            self.lora_A[adapter_name].requires_grad_(False)
+            nn.init.normal_(self.lora_B[adapter_name], mean=0.0, std=std_dev)
+            self.lora_B[adapter_name].requires_grad_(False)
             nn.init.ones_(self.lora_d[adapter_name])
             nn.init.zeros_(self.lora_b[adapter_name])
 

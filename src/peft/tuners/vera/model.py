@@ -61,6 +61,9 @@ class VeraModel(LoraModel):
 
     # Note: don't redefine prefix here, it should be inherited from LoraModel
 
+    def __init__(self, model, config, adapter_name):
+        super().__init__(model, config, adapter_name)
+
     # def __init__(self, model, config, adapter_name):
     #     super().__init__(model, config, adapter_name)
 

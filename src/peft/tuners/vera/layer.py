@@ -59,6 +59,8 @@ class VeraLayer(LoraLayer):
         # Left singular vectors
         self.lora_B[adapter_name] = nn.Parameter(torch.normal(size=(self.out_features, r), mean=0, std=std_dev), requires_grad=False)
         self.lora_b[adapter_name] = nn.Parameter(torch.zeros(1, r))
+        self.lora_A[adapter_name].requires_grad = False
+        self.lora_B[adapter_name].requires_grad = False
         # The current rank
         # self.ranknum[adapter_name] = nn.Parameter(torch.randn(1), requires_grad=False)
         # self.ranknum[adapter_name].data.fill_(float(r))

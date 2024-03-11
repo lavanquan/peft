@@ -79,7 +79,9 @@ class VeraLayer(LoraLayer):
             std_dev = 1./torch.sqrt(torch.tensor(self.r[adapter_name]).float())
             # nn.init.normal_(self.lora_E[adapter_name], mean=0.0, std=0.02)
             nn.init.normal_(self.lora_A[adapter_name], mean=0.0, std=std_dev)
+            self.lora_A[adapter_name].requires_grad = False
             nn.init.normal_(self.lora_B[adapter_name], mean=0.0, std=std_dev)
+            self.lora_B[adapter_name].requires_grad = False
             nn.init.ones_(self.lora_d[adapter_name])
             nn.init.zeros_(self.lora_b[adapter_name])
 

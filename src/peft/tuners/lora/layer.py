@@ -268,7 +268,9 @@ class LoraLayer(BaseTunerLayer):
         weight_B = weight_B.detach()
         lora_weight = (lora_b * weight_B)  @ (lora_d * weight_A)
 
-        result_vera = F.linear(x, transpose(weight, self.fan_in_fan_out)) + F.linear(x, transpose(lora_weight, self.fan_in_fan_out)) * scaling
+        # result_vera = F.linear(x, transpose(weight, self.fan_in_fan_out)) + F.linear(x, transpose(lora_weight, self.fan_in_fan_out)) * scaling
+        new_weight = weight + scaling * lora_weight
+        result_vera = F.linear(x, transpose(new_weight, self.fan_in_fan_out)) - F.linear(x, transpose(weight. self.fan_in_fan_out))
         return result_vera
 
     def set_scale(self, adapter, scale):
@@ -496,14 +498,11 @@ class Linear(nn.Module, LoraLayer):
                 scaling = self.scaling[active_adapter]
                 x = x.to(lora_A.weight.dtype)
 
-                if not self.use_dora[active_adapter]:
+                if not self.use_dora[active_adapter] and not self.use_vera[active_adapter]:
                     result = result + lora_B(lora_A(dropout(x))) * scaling
-                else:
+                elif self.use_dora[active_adapter] and not self.use_vera[active_adapter]:
                     x = dropout(x)
                     result = result + self._apply_dora(x, lora_A, lora_B, scaling, active_adapter)
-
-                if not self.use_vera[active_adapter]:
-                    result = result + lora_B(lora_A(dropout(x))) * scaling
                 else:
                     x = dropout(x)
                     lora_d = self.lora_d[active_adapter]

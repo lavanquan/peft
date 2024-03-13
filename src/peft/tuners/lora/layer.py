@@ -131,8 +131,8 @@ class LoraLayer(BaseTunerLayer):
             self.use_dora[adapter_name] = False
 
         if use_vera:
-            self.lora_A[adapter_name].weight.requires_grad_(False)
-            self.lora_B[adapter_name].weight.requires_grad_(False)
+            # self.lora_A[adapter_name].weight.requires_grad_(False)
+            # self.lora_B[adapter_name].weight.requires_grad_(False)
             self.vera_init(adapter_name)
             self.use_vera[adapter_name] = True
         else:
@@ -200,7 +200,7 @@ class LoraLayer(BaseTunerLayer):
         self.adapter_layer_names = self.adapter_layer_names[:] + ("lora_magnitude_vector",)
 
     def vera_init(self, adapter_name: str) -> None:
-        std_dev = 1./torch.sqrt(torch.tensor(self.r[adapter_name]).float())
+        std_dev = 1./torch.tensor(self.r[adapter_name])
         nn.init.normal_(self.lora_A[adapter_name].weight, mean=0., std=std_dev)
         nn.init.normal_(self.lora_B[adapter_name].weight, mean=0., std=std_dev)
         self.lora_A[adapter_name].weight.requires_grad_(False)
@@ -261,7 +261,7 @@ class LoraLayer(BaseTunerLayer):
         # print(lora_b.shape, lora_B.weight.shape, lora_d.shape, lora_A.weight.shape)
         weight = self.get_base_layer().weight
         weight = weight.detach()
-        
+
         weight_A = lora_A.weight
         weight_B = lora_B.weight
         weight_A = weight_A.detach()

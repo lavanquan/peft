@@ -257,7 +257,7 @@ class LoraLayer(BaseTunerLayer):
         For VeRA, calculate the extra output from LoRA with VeRA applied. This should be added on top of the base layer
         output.
         """
-        lora_weight = (lora_B.weight * lora_b)  @ (lora_A.weight * lora_d)
+        lora_weight = (lora_b * lora_B.weight)  @ (lora_d * lora_A.weight)
         weight = self.get_base_layer().weight
 
         lora_weight = lora_weight.detach()

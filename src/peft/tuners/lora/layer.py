@@ -495,8 +495,8 @@ class Linear(nn.Module, LoraLayer):
                     result = result + lora_B(lora_A(dropout(x))) * scaling
                 else:
                     x = dropout(x)
-                    lora_d = self.lora_d
-                    lora_b = self.lora_b
+                    lora_d = self.lora_d[active_adapter]
+                    lora_b = self.lora_b[active_adapter]
                     result = result + self._apply_vera(x, lora_A, lora_d, lora_B, lora_b, scaling, active_adapter)
 
             result = result.to(torch_result_dtype)

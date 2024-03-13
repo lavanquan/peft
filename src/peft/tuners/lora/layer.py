@@ -257,13 +257,16 @@ class LoraLayer(BaseTunerLayer):
         For VeRA, calculate the extra output from LoRA with VeRA applied. This should be added on top of the base layer
         output.
         """
-        print("TROI OI CUU TUI")
-        print(lora_b.shape, lora_B.weight.shape, lora_d.shape, lora_A.weight.shape)
-        lora_weight = (lora_b * lora_B.weight)  @ (lora_d * lora_A.weight)
+        # print("TROI OI CUU TUI")
+        # print(lora_b.shape, lora_B.weight.shape, lora_d.shape, lora_A.weight.shape)
         weight = self.get_base_layer().weight
-
-        lora_weight = lora_weight.detach()
         weight = weight.detach()
+        
+        weight_A = lora_A.weight
+        weight_B = lora_B.weight
+        weight_A = weight_A.detach()
+        weight_B = weight_B.detach()
+        lora_weight = (lora_b * weight_B)  @ (lora_d * weight_A)
 
         result_vera = F.linear(x, transpose(weight, self.fan_in_fan_out)) + F.linear(x, transpose(lora_weight, self.fan_in_fan_out)) * scaling
         return result_vera

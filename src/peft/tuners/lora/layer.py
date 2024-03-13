@@ -210,7 +210,7 @@ class LoraLayer(BaseTunerLayer):
         self.lora_b = nn.ParameterDict()
         self.lora_b[adapter_name] = nn.Parameter(torch.zeros(1, self.out_features), requires_grad=True)
         # add lora_magnitude_vector to the list of learnable parameters
-        self.adapter_layer_names = self.adapter_layer_names[:] + ("lora_d", "lora_b",)
+        self.adapter_layer_names = ("lora_d", "lora_b",)
 
     def _cache_store(self, key: str, value: Any) -> None:
         self._caches[key] = value
@@ -257,9 +257,13 @@ class LoraLayer(BaseTunerLayer):
         For VeRA, calculate the extra output from LoRA with VeRA applied. This should be added on top of the base layer
         output.
         """
-        # lora_weight = (lora_B.weight * lora_b)  @ (lora_A.weight * lora_d)
+        lora_weight = (lora_B.weight * lora_b)  @ (lora_A.weight * lora_d)
         weight = self.get_base_layer().weight
-        result_vera = F.linear(x, transpose(weight, self.fan_in_fan_out)) + lora_b * lora_B(lora_d * lora_A(x)) * scaling
+
+        lora_weight = lora_weight.detach()
+        weight = weight.detach()
+
+        result_vera = F.linear(x, transpose(weight, self.fan_in_fan_out)) + lora_weight(x) * scaling
         return result_vera
 
     def set_scale(self, adapter, scale):

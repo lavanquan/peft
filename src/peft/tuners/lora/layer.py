@@ -131,10 +131,10 @@ class LoraLayer(BaseTunerLayer):
             self.use_dora[adapter_name] = False
 
         if use_vera:
-            self.vera_init(adapter_name)
-            self.use_vera[adapter_name] = True
             self.lora_A[adapter_name].weight.requires_grad_(False)
             self.lora_B[adapter_name].weight.requires_grad_(False)
+            self.vera_init(adapter_name)
+            self.use_vera[adapter_name] = True
         else:
             self.use_vera[adapter_name] = False
 

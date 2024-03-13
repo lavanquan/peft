@@ -265,7 +265,7 @@ class LoraLayer(BaseTunerLayer):
         lora_weight = lora_weight.detach()
         weight = weight.detach()
 
-        result_vera = F.linear(x, transpose(weight, self.fan_in_fan_out)) + lora_weight(x) * scaling
+        result_vera = F.linear(x, transpose(weight, self.fan_in_fan_out)) + F.linear(x, transpose(lora_weight, self.fan_in_fan_out)) * scaling
         return result_vera
 
     def set_scale(self, adapter, scale):

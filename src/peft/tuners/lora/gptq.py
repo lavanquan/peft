@@ -32,6 +32,7 @@ class QuantLinear(torch.nn.Module, LoraLayer):
         init_lora_weights: bool = True,
         use_rslora: bool = False,
         use_dora: bool = False,
+        use_vera: bool = False,
         **kwargs,
     ):
         super().__init__()
@@ -39,6 +40,9 @@ class QuantLinear(torch.nn.Module, LoraLayer):
 
         if use_dora:
             raise ValueError(f"{self.__class__.__name__} does not support DoRA yet, please set it to False")
+        
+        if use_vera:
+            raise ValueError(f"{self.__class__.__name__} does not support VeRA yet, please set it to False")
 
         # self.base_layer and self.quant_linear_module are the same; we need the former for consistency and the latter
         # for backwards compatibility
@@ -52,6 +56,7 @@ class QuantLinear(torch.nn.Module, LoraLayer):
             init_lora_weights=init_lora_weights,
             use_rslora=use_rslora,
             use_dora=use_dora,
+            use_vera=use_vera
         )
 
     def forward(self, x: torch.Tensor):

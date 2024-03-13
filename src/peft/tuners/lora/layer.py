@@ -258,7 +258,7 @@ class LoraLayer(BaseTunerLayer):
         output.
         """
         print("TROI OI CUU TUI")
-        print(lora_b.shape, lora_B.shape, lora_d.shape, lora_A.shape)
+        print(lora_b.shape, lora_B.weight.shape, lora_d.shape, lora_A.weight.shape)
         lora_weight = (lora_b * lora_B.weight)  @ (lora_d * lora_A.weight)
         weight = self.get_base_layer().weight
 

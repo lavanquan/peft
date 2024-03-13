@@ -200,7 +200,7 @@ class LoraLayer(BaseTunerLayer):
         self.adapter_layer_names = self.adapter_layer_names[:] + ("lora_magnitude_vector",)
 
     def vera_init(self, adapter_name: str) -> None:
-        std_dev = 1./torch.tensor(self.r[adapter_name])
+        std_dev = 1./torch.sqrt(torch.tensor(self.r[adapter_name]).float())
         nn.init.normal_(self.lora_A[adapter_name].weight, mean=0., std=std_dev)
         nn.init.normal_(self.lora_B[adapter_name].weight, mean=0., std=std_dev)
         self.lora_A[adapter_name].weight.requires_grad_(False)
@@ -268,10 +268,8 @@ class LoraLayer(BaseTunerLayer):
         weight_B = weight_B.detach()
         lora_weight = (lora_b * weight_B)  @ (lora_d * weight_A)
 
-        # result_vera = F.linear(x, transpose(weight, self.fan_in_fan_out)) + F.linear(x, transpose(lora_weight, self.fan_in_fan_out)) * scaling
         new_weight = weight + scaling * lora_weight
-        # result_vera = F.linear(x, transpose(new_weight, self.fan_in_fan_out)) - F.linear(x, transpose(weight, self.fan_in_fan_out))
-        result_vera = F.linear(x, transpose(lora_weight, self.fan_in_fan_out))
+        result_vera = F.linear(x, transpose(new_weight, self.fan_in_fan_out)) - F.linear(x, transpose(weight, self.fan_in_fan_out))
         return result_vera
 
     def set_scale(self, adapter, scale):
@@ -508,7 +506,7 @@ class Linear(nn.Module, LoraLayer):
                     x = dropout(x)
                     lora_d = self.lora_d[active_adapter]
                     lora_b = self.lora_b[active_adapter]
-                    result = result + scaling * self._apply_vera(x, lora_A, lora_d, lora_B, lora_b, scaling, active_adapter)
+                    result = result + self._apply_vera(x, lora_A, lora_d, lora_B, lora_b, scaling, active_adapter)
 
             result = result.to(torch_result_dtype)
         return result

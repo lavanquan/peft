@@ -206,9 +206,9 @@ class LoraLayer(BaseTunerLayer):
         self.lora_A[adapter_name].weight.requires_grad_(False)
         self.lora_B[adapter_name].weight.requires_grad_(False)
         self.lora_d = nn.ParameterDict()
-        self.lora_d[adapter_name] = nn.Parameter(torch.ones(1, self.r[adapter_name]), requires_grad=True)
+        self.lora_d[adapter_name] = nn.Parameter(torch.ones(self.r[adapter_name], 1), requires_grad=True)
         self.lora_b = nn.ParameterDict()
-        self.lora_b[adapter_name] = nn.Parameter(torch.zeros(1, self.out_features), requires_grad=True)
+        self.lora_b[adapter_name] = nn.Parameter(torch.zeros(self.out_features, 1), requires_grad=True)
         # add lora_magnitude_vector to the list of learnable parameters
         self.adapter_layer_names = ("lora_d", "lora_b",)
 

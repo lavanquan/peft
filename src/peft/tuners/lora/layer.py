@@ -271,7 +271,7 @@ class LoraLayer(BaseTunerLayer):
         # result_vera = F.linear(x, transpose(weight, self.fan_in_fan_out)) + F.linear(x, transpose(lora_weight, self.fan_in_fan_out)) * scaling
         new_weight = weight + scaling * lora_weight
         # result_vera = F.linear(x, transpose(new_weight, self.fan_in_fan_out)) - F.linear(x, transpose(weight, self.fan_in_fan_out))
-        result_vera = F.linear(x, transpose(scaling * lora_weight, self.fan_in_fan_out))
+        result_vera = F.linear(x, transpose(lora_weight, self.fan_in_fan_out))
         return result_vera
 
     def set_scale(self, adapter, scale):
@@ -508,7 +508,7 @@ class Linear(nn.Module, LoraLayer):
                     x = dropout(x)
                     lora_d = self.lora_d[active_adapter]
                     lora_b = self.lora_b[active_adapter]
-                    result = result + self._apply_vera(x, lora_A, lora_d, lora_B, lora_b, scaling, active_adapter)
+                    result = result + scaling * self._apply_vera(x, lora_A, lora_d, lora_B, lora_b, scaling, active_adapter)
 
             result = result.to(torch_result_dtype)
         return result

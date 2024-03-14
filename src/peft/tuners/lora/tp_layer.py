@@ -46,6 +46,7 @@ class LoraParallelLinear(nn.Module, LoraLayer):
         use_rslora: bool = False,
         use_dora: bool = False,
         use_vera: bool = False,
+        use_dovera: bool = False,
         **kwargs,
     ):
         super().__init__()
@@ -56,6 +57,9 @@ class LoraParallelLinear(nn.Module, LoraLayer):
         
         if use_vera:
             raise ValueError(f"{self.__class__.__name__} does not support VeRA yet, please set it to False")
+        
+        if use_dovera:
+            raise ValueError(f"{self.__class__.__name__} does not support DoVeRA yet, please set it to False")
 
         self.backend = backend
         self.is_parallel_a = isinstance(base_layer, backend.RowParallelLinear)
@@ -82,6 +86,7 @@ class LoraParallelLinear(nn.Module, LoraLayer):
             use_rslora=use_rslora,
             use_dora=use_dora,
             use_vera=use_vera,
+            use_dovera=use_dovera,
             init_method=init_method,
             input_is_parallel=input_is_parallel,
             gather_output=gather_output,
@@ -109,6 +114,7 @@ class LoraParallelLinear(nn.Module, LoraLayer):
         use_rslora,
         use_dora=False,
         use_vera=False,
+        use_dovera=False,
         init_method=init.xavier_normal_,
         input_is_parallel=True,
         gather_output=False,

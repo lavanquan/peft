@@ -50,6 +50,7 @@ class LoraLayer(BaseTunerLayer):
         self.merged_adapters = []
         self.use_dora: dict[str, bool] = {}
         self.use_vera: dict[str, bool] = {}
+        self.use_dovera: dict[str, bool] = {}
         self.lora_magnitude_vector: Optional[torch.nn.ParameterDict] = None  # for DoRA
         self.lora_d: Optional[torch.nn.ParameterDict] = None # for VeRA
         self.lora_b: Optional[torch.nn.ParameterDict] = None # for VeRA
@@ -86,7 +87,8 @@ class LoraLayer(BaseTunerLayer):
         self.out_features = out_features
 
     def update_layer(
-        self, adapter_name, r, lora_alpha, lora_dropout, init_lora_weights, use_rslora, use_dora: bool = False, use_vera: bool = False
+        self, adapter_name, r, lora_alpha, lora_dropout, init_lora_weights, use_rslora, use_dora: bool = False, use_vera: bool = False,
+        use_dovera: bool = False
     ):
         # This code works for linear layers, override for other layer types
         if r <= 0:
@@ -131,12 +133,16 @@ class LoraLayer(BaseTunerLayer):
             self.use_dora[adapter_name] = False
 
         if use_vera:
-            # self.lora_A[adapter_name].weight.requires_grad_(False)
-            # self.lora_B[adapter_name].weight.requires_grad_(False)
             self.vera_init(adapter_name)
             self.use_vera[adapter_name] = True
         else:
             self.use_vera[adapter_name] = False
+
+        if use_dovera:
+            self.dovera_init(adapter_name)
+            self.use_dovera[adapter_name] = True
+        else:
+            self.use_dovera[adapter_name] = False
 
         self.set_adapter(self.active_adapters)
 
@@ -212,6 +218,32 @@ class LoraLayer(BaseTunerLayer):
         # add lora_magnitude_vector to the list of learnable parameters
         self.adapter_layer_names = ("lora_d", "lora_b",)
 
+    def dovera_init(self, adapter_name: str) -> None:
+        std_dev = 1./torch.sqrt(torch.tensor(self.r[adapter_name]).float())
+        nn.init.normal_(self.lora_A[adapter_name].weight, mean=0., std=std_dev)
+        nn.init.normal_(self.lora_B[adapter_name].weight, mean=0., std=std_dev)
+        self.lora_A[adapter_name].weight.requires_grad_(False)
+        self.lora_B[adapter_name].weight.requires_grad_(False)
+        self.lora_d = nn.ParameterDict()
+        self.lora_d[adapter_name] = nn.Parameter(torch.ones(self.r[adapter_name], 1), requires_grad=True)
+        self.lora_b = nn.ParameterDict()
+        self.lora_b[adapter_name] = nn.Parameter(torch.zeros(self.out_features, 1), requires_grad=True)
+
+        lora_A = self.lora_A[adapter_name]
+        lora_B = self.lora_B[adapter_name]
+        lora_d = self.lora_d[adapter_name]
+        lora_b = self.lora_b[adapter_name]
+        scaling = self.scaling[adapter_name]
+        with gather_params_ctx(self.get_base_layer()):
+            weight = self.get_base_layer().weight
+            lora_weight = (lora_b * lora_B.weight) @ (lora_d * lora_A.weight)
+            weight_norm = self._get_weight_norm(weight, lora_weight, scaling)
+        self.lora_magnitude_vector = nn.ParameterDict()
+        self.lora_magnitude_vector[adapter_name] = nn.Parameter(weight_norm, requires_grad=True)
+
+        # add lora_magnitude_vector to the list of learnable parameters
+        self.adapter_layer_names = ("lora_d", "lora_b", "lora_magnitude_vector",)
+
     def _cache_store(self, key: str, value: Any) -> None:
         self._caches[key] = value
 
@@ -257,8 +289,6 @@ class LoraLayer(BaseTunerLayer):
         For VeRA, calculate the extra output from LoRA with VeRA applied. This should be added on top of the base layer
         output.
         """
-        # print("TROI OI CUU TUI")
-        # print(lora_b.shape, lora_B.weight.shape, lora_d.shape, lora_A.weight.shape)
         weight = self.get_base_layer().weight
         weight = weight.detach()
 
@@ -271,6 +301,29 @@ class LoraLayer(BaseTunerLayer):
         new_weight = weight + scaling * lora_weight
         result_vera = F.linear(x, transpose(new_weight, self.fan_in_fan_out)) - F.linear(x, transpose(weight, self.fan_in_fan_out))
         return result_vera
+    
+    def _apply_dovera(self, x, lora_A, lora_d, lora_B, lora_b, scaling, active_adapter):
+        """
+        For VeRA, calculate the extra output from LoRA with VeRA applied. This should be added on top of the base layer
+        output.
+        """
+        weight_A = lora_A.weight
+        weight_B = lora_B.weight
+        weight_A = weight_A.detach()
+        weight_B = weight_B.detach()
+        lora_weight = (lora_b * weight_B)  @ (lora_d * weight_A)
+
+        magnitude = self.lora_magnitude_vector[active_adapter]
+        weight = self.get_base_layer().weight
+        weight_norm = self._get_weight_norm(weight, lora_weight, scaling)
+
+        weight_norm = weight_norm.detach()
+        mag_norm_scale = (magnitude / weight_norm).view(1, -1)
+        result_dovera = (mag_norm_scale - 1) * (
+            F.linear(x, transpose(weight, self.fan_in_fan_out))
+        ) + mag_norm_scale * lora_b * lora_B(lora_d * lora_A(x)) * scaling
+
+        return result_dovera
 
     def set_scale(self, adapter, scale):
         if adapter not in self.scaling:
@@ -324,6 +377,7 @@ class Linear(nn.Module, LoraLayer):
         use_rslora: bool = False,
         use_dora: bool = False,
         use_vera: bool = False,
+        use_dovera: bool = False,
         **kwargs,
     ) -> None:
         super().__init__()
@@ -339,7 +393,8 @@ class Linear(nn.Module, LoraLayer):
             init_lora_weights=init_lora_weights,
             use_rslora=use_rslora,
             use_dora=use_dora,
-            use_vera=use_vera
+            use_vera=use_vera,
+            use_dovera=use_dovera
         )
         self.is_target_conv_1d_layer = is_target_conv_1d_layer
 
@@ -369,7 +424,7 @@ class Linear(nn.Module, LoraLayer):
                     # because of the copy operation.
                     orig_weights = base_layer.weight.data.clone()
                     delta_weight = self.get_delta_weight(active_adapter)
-                    if not self.use_dora[active_adapter]:
+                    if not self.use_dora[active_adapter] and not self.use_dovera[active_adapter]:
                         orig_weights = orig_weights + delta_weight
                     else:
                         # handle dora
@@ -382,10 +437,10 @@ class Linear(nn.Module, LoraLayer):
                         dora_factor = self.lora_magnitude_vector[active_adapter] / weight_norm
                         orig_weights = dora_factor.view(-1, 1) * (orig_weights + delta_weight)
 
-                    if not self.use_vera[active_adapter]:
-                        orig_weights = orig_weights + delta_weight
-                    else:
-                        orig_weights = orig_weights + delta_weight
+                    # if not self.use_vera[active_adapter]:
+                    #     orig_weights = orig_weights + delta_weight
+                    # else:
+                    #     orig_weights = orig_weights + delta_weight
                     
                     if not torch.isfinite(orig_weights).all():
                         raise ValueError(
@@ -395,7 +450,7 @@ class Linear(nn.Module, LoraLayer):
                     base_layer.weight.data = orig_weights
                 else:
                     delta_weight = self.get_delta_weight(active_adapter)
-                    if not self.use_dora[active_adapter]:
+                    if not self.use_dora[active_adapter] and not self.use_dovera[active_adapter]:
                         base_layer.weight.data = base_layer.weight.data + delta_weight
                     else:
                         # handle dora
@@ -423,7 +478,7 @@ class Linear(nn.Module, LoraLayer):
             if active_adapter in self.lora_A.keys():
                 weight = self.get_base_layer().weight
                 delta_weight = self.get_delta_weight(active_adapter)
-                if not self.use_dora[active_adapter]:
+                if not self.use_dora[active_adapter] and not self.use_dovera[active_adapter]:
                     weight.data -= delta_weight
                 else:
                     weight_norm = self._cache_pop(f"{active_adapter}-weight_norm")
@@ -497,16 +552,21 @@ class Linear(nn.Module, LoraLayer):
                 scaling = self.scaling[active_adapter]
                 x = x.to(lora_A.weight.dtype)
 
-                if not self.use_dora[active_adapter] and not self.use_vera[active_adapter]:
+                if not self.use_dora[active_adapter] and not self.use_vera[active_adapter] and not self.use_dovera[active_adapter]:
                     result = result + lora_B(lora_A(dropout(x))) * scaling
-                elif self.use_dora[active_adapter] and not self.use_vera[active_adapter]:
+                elif self.use_dora[active_adapter] and not self.use_vera[active_adapter] and not self.use_dovera[active_adapter]:
                     x = dropout(x)
                     result = result + self._apply_dora(x, lora_A, lora_B, scaling, active_adapter)
-                else:
+                elif not self.use_dora[active_adapter] and self.use_vera[active_adapter] and not self.use_dovera[active_adapter]:
                     x = dropout(x)
                     lora_d = self.lora_d[active_adapter]
                     lora_b = self.lora_b[active_adapter]
                     result = result + self._apply_vera(x, lora_A, lora_d, lora_B, lora_b, scaling, active_adapter)
+                else:
+                    x = dropout(x)
+                    lora_d = self.lora_d[active_adapter]
+                    lora_b = self.lora_b[active_adapter]
+                    result = result + self._apply_dovera(x, lora_A, lora_d, lora_B, lora_b, scaling, active_adapter)
 
             result = result.to(torch_result_dtype)
         return result
@@ -529,6 +589,7 @@ class Embedding(nn.Module, LoraLayer):
         use_rslora: bool = False,
         use_dora: bool = False,
         use_vera: bool = False,
+        use_dovera: bool = False,
         **kwargs,
     ) -> None:
         super().__init__()
@@ -539,6 +600,9 @@ class Embedding(nn.Module, LoraLayer):
         
         if use_vera:
             raise ValueError(f"{self.__class__.__name__} does not support VeRA yet, please set it to False")
+        
+        if use_dovera:
+            raise ValueError(f"{self.__class__.__name__} does not support DoVeRA yet, please set it to False")
 
         self._active_adapter = adapter_name
         self.update_layer(
@@ -549,10 +613,11 @@ class Embedding(nn.Module, LoraLayer):
             init_lora_weights=init_lora_weights,
             use_rslora=use_rslora,
             use_dora=use_dora,
-            use_vera=use_vera
+            use_vera=use_vera,
+            use_dovera=use_dovera
         )
 
-    def update_layer(self, adapter_name, r, lora_alpha, lora_dropout, init_lora_weights, use_rslora, use_dora, use_vera):
+    def update_layer(self, adapter_name, r, lora_alpha, lora_dropout, init_lora_weights, use_rslora, use_dora, use_vera, use_dovera):
         if r <= 0:
             raise ValueError(f"`r` should be a positive integer value but the value passed is {r}")
 
@@ -722,6 +787,7 @@ class Conv2d(nn.Module, LoraLayer):
         use_rslora: bool = False,
         use_dora: bool = False,
         use_vera: bool = False,
+        use_dovera: bool = False,
         **kwargs,
     ) -> None:
         super().__init__()
@@ -732,6 +798,9 @@ class Conv2d(nn.Module, LoraLayer):
         
         if use_vera:
             raise ValueError(f"{self.__class__.__name__} does not support VeRA yet, please set it to False")
+        
+        if use_dovera:
+            raise ValueError(f"{self.__class__.__name__} does not support DoVeRA yet, please set it to False")
 
         self._active_adapter = adapter_name
         self.update_layer(
@@ -742,10 +811,11 @@ class Conv2d(nn.Module, LoraLayer):
             init_lora_weights=init_lora_weights,
             use_rslora=use_rslora,
             use_dora=use_dora,
-            use_vera=use_vera
+            use_vera=use_vera,
+            use_dovera=use_dovera
         )
 
-    def update_layer(self, adapter_name, r, lora_alpha, lora_dropout, init_lora_weights, use_rslora, use_dora, use_vera):
+    def update_layer(self, adapter_name, r, lora_alpha, lora_dropout, init_lora_weights, use_rslora, use_dora, use_vera, use_dovera):
         if r <= 0:
             raise ValueError(f"`r` should be a positive integer value but the value passed is {r}")
 

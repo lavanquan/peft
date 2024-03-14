@@ -232,7 +232,9 @@ class LoraLayer(BaseTunerLayer):
         lora_A = self.lora_A[adapter_name]
         lora_B = self.lora_B[adapter_name]
         lora_d = self.lora_d[adapter_name]
+        lora_d.to(lora_A.weight.device)
         lora_b = self.lora_b[adapter_name]
+        lora_b.to(lora_B.weight.device)
         scaling = self.scaling[adapter_name]
         with gather_params_ctx(self.get_base_layer()):
             weight = self.get_base_layer().weight

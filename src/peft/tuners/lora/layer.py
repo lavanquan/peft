@@ -216,7 +216,7 @@ class LoraLayer(BaseTunerLayer):
         self.lora_d[adapter_name] = nn.Parameter(torch.ones(self.r[adapter_name], 1), requires_grad=True)
         self.lora_b = nn.ParameterDict()
         self.lora_b[adapter_name] = nn.Parameter(torch.zeros(self.out_features, 1), requires_grad=True)
-        print(self.lora_B.weight.device, self.lora_d.device)
+        print(self.lora_B[adapter_name].weight.device, self.lora_d[adapter_name].device)
         # add lora_magnitude_vector to the list of learnable parameters
         self.adapter_layer_names = ("lora_d", "lora_b",)
 
@@ -327,7 +327,7 @@ class LoraLayer(BaseTunerLayer):
         mag_norm_scale = (magnitude / weight_norm).view(1, -1)
         result_dovera = (mag_norm_scale - 1) * (
             F.linear(x, transpose(weight, self.fan_in_fan_out))
-        ) + mag_norm_scale * lora_b * lora_B(lora_d * lora_A(x)) * scaling
+        ) + mag_norm_scale * F.linear(x, transpose(lora_weight, self.fan_in_fan_out)) * scaling
 
         return result_dovera
 

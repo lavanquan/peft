@@ -216,6 +216,7 @@ class LoraLayer(BaseTunerLayer):
         self.lora_d[adapter_name] = nn.Parameter(torch.ones(self.r[adapter_name], 1), requires_grad=True)
         self.lora_b = nn.ParameterDict()
         self.lora_b[adapter_name] = nn.Parameter(torch.zeros(self.out_features, 1), requires_grad=True)
+        print(self.lora_B.weight.device, self.lora_d.device)
         # add lora_magnitude_vector to the list of learnable parameters
         self.adapter_layer_names = ("lora_d", "lora_b",)
 
@@ -233,9 +234,10 @@ class LoraLayer(BaseTunerLayer):
         lora_A = self.lora_A[adapter_name]
         lora_B = self.lora_B[adapter_name]
         lora_d = self.lora_d[adapter_name]
-        lora_d.to(lora_A.weight.device)
+        # lora_d.to(lora_A.weight.device)
         lora_b = self.lora_b[adapter_name]
-        lora_b.to(lora_B.weight.device)
+        # lora_b.to(lora_B.weight.device)
+        self.to(lora_A.weight.device)
         scaling = self.scaling[adapter_name]
         with gather_params_ctx(self.get_base_layer()):
             weight = self.get_base_layer().weight

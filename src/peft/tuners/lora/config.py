@@ -273,6 +273,39 @@ class LoraConfig(PeftConfig):
         },
     )
 
+    use_dovera_tuning: bool = field(
+        default=False,
+        metadata={
+            "help": (
+                "Enable 'Weight-Decomposed Low-Rank Adaptation' (DoVeRA_Tuning). This technique decomposes the updates of the "
+                "weights into two parts, magnitude and direction. Direction is handled by normal LoRA, whereas the "
+                "magnitude is handled by a separate learnable parameter. This can improve the performance of LoRA, "
+                "especially at low ranks. Right now, DoVeRA_Tuning only supports non-quantized linear layers. DoVeRA_Tuning introduces "
+                "a bigger overhead than pure LoRA, so it is recommended to merge weights for inference. For more "
+                "information, see  https://arxiv.org/abs/2402.09353."
+            )
+        },
+    )
+
+    use_kd: bool = field(
+        default=False,
+        metadata={
+            "help": (
+                "Enable 'Weight-Decomposed Low-Rank Adaptation' (DoVeRA_Tuning). This technique decomposes the updates of the "
+                "weights into two parts, magnitude and direction. Direction is handled by normal LoRA, whereas the "
+                "magnitude is handled by a separate learnable parameter. This can improve the performance of LoRA, "
+                "especially at low ranks. Right now, DoVeRA_Tuning only supports non-quantized linear layers. DoVeRA_Tuning introduces "
+                "a bigger overhead than pure LoRA, so it is recommended to merge weights for inference. For more "
+                "information, see  https://arxiv.org/abs/2402.09353."
+            )
+        },
+    )
+
+    orth_reg_weight: float = field(
+        default=0.5, 
+        metadata={"help": "The orthogonal regularization coefficient."}   
+    )
+
     def __post_init__(self):
         self.peft_type = PeftType.LORA
         self.target_modules = (
@@ -294,6 +327,9 @@ class LoraConfig(PeftConfig):
         
         if self.use_dovera and (self.megatron_config or self.init_lora_weights == "loftq"):
             raise ValueError("DoVeRA does not support megatron_core or LoftQ. Please set `use_dovera=False`.")
+        
+        if self.use_dovera_tuning and (self.megatron_config or self.init_lora_weights == "loftq"):
+            raise ValueError("DoVeRA_Tuning does not support megatron_core or LoftQ. Please set `use_dovera_tuning=False`.")
 
         # handle init_lora_weights and loftq_config
         if self.init_lora_weights == "loftq":

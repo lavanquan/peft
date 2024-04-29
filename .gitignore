@@ -139,3 +139,5 @@ dmypy.json
 
 # More test things
 wandb
+
+.safetensors

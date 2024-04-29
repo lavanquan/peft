@@ -41,6 +41,7 @@ if is_bnb_available():
             use_dora: bool = False,
             use_vera: bool = False,
             use_dovera: bool = False,
+            use_dovera_tuning: bool = False,
             **kwargs,
         ) -> None:
             super().__init__()
@@ -54,6 +55,9 @@ if is_bnb_available():
             
             if use_dovera:
                 raise ValueError(f"{self.__class__.__name__} does not support DoVeRA yet, please set it to False")
+            
+            if use_dovera_tuning:
+                raise ValueError(f"{self.__class__.__name__} does not support DoVeRA_Tuning yet, please set it to False")
 
             self._active_adapter = adapter_name
             self.update_layer(
@@ -66,6 +70,7 @@ if is_bnb_available():
                 use_dora=use_dora,
                 use_vera=use_vera,
                 use_dovera=use_dovera,
+                use_dovera_tuning=use_dovera_tuning,
             )
 
         def merge(self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None) -> None:
@@ -241,6 +246,7 @@ if is_bnb_4bit_available():
             use_dora: bool = False,
             use_vera: bool = False,
             use_dovera: bool = False,
+            use_dovera_tuning: bool = False,
             **kwargs,
         ) -> None:
             super().__init__()
@@ -254,6 +260,9 @@ if is_bnb_4bit_available():
             
             if use_dovera:
                 raise ValueError(f"{self.__class__.__name__} does not support DoVeRA yet, please set it to False")
+            
+            if use_dovera_tuning:
+                raise ValueError(f"{self.__class__.__name__} does not support DoVeRA_Tuning yet, please set it to False")
 
             self._active_adapter = adapter_name
             self.update_layer(
@@ -266,6 +275,7 @@ if is_bnb_4bit_available():
                 use_dora=use_dora,
                 use_vera=use_vera,
                 use_dovera=use_dovera,
+                use_dovera_tuning=use_dovera_tuning,
             )
 
         def merge(self, safe_merge: bool = False, adapter_names: Optional[List[str]] = None) -> None:

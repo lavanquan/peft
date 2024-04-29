@@ -45,6 +45,9 @@ from .gptq import dispatch_gptq
 from .layer import Conv2d, LoraLayer, dispatch_default
 from .tp_layer import dispatch_megatron
 
+# from transformers.utils import logging
+# logging.set_verbosity_info()
+# logger = logging.get_logger("transformers")
 
 class LoraModel(BaseTuner):
     """
@@ -157,6 +160,7 @@ class LoraModel(BaseTuner):
             "use_dora": lora_config.use_dora,
             "use_vera": lora_config.use_vera,
             "use_dovera": lora_config.use_dovera,
+            "use_dovera_tuning": lora_config.use_dovera_tuning,
             "loaded_in_8bit": getattr(self.model, "is_loaded_in_8bit", False),
             "loaded_in_4bit": getattr(self.model, "is_loaded_in_4bit", False),
         }
@@ -180,7 +184,8 @@ class LoraModel(BaseTuner):
                 use_rslora=lora_config.use_rslora,
                 use_dora=lora_config.use_dora,
                 use_vera=lora_config.use_vera,
-                use_dovera=lora_config.use_vera
+                use_dovera=lora_config.use_dovera,
+                use_dovera_tuning=lora_config.use_dovera_tuning,
             )
         else:
             new_module = self._create_new_module(lora_config, adapter_name, target, **kwargs)
@@ -188,6 +193,54 @@ class LoraModel(BaseTuner):
                 # adding an additional adapter: it is not automatically trainable
                 new_module.requires_grad_(False)
             self._replace_module(parent, target_name, new_module, target)
+
+    def forward(self, *args, **kwargs):
+        # logger.info('---------this is for test regu loss---------------')
+        outputs = self.model.forward(*args, **kwargs)
+        # print(self.peft_config)
+        # print(self.active_adapter)
+        # print(self.active_adapters)
+        if (getattr(outputs, "loss", None) is not None) and isinstance(outputs.loss, torch.Tensor):
+            # Calculate the orthogonal regularization
+            if self.peft_config[self.active_adapter].use_kd:
+                orth_reg_weight = self.peft_config[self.active_adapter].orth_reg_weight
+
+                if orth_reg_weight <= 0:
+                    raise ValueError("orth_reg_weight should be greater than 0. ")
+
+                flag = False
+                regu_loss = 0
+                num_param = 0
+                cos = nn.CosineSimilarity(eps=1e-6)
+                for n, p in self.model.named_parameter():
+                    if 'base_layer' in n:
+                        flag = True
+                    if flag==True:
+                        if 'base_layer' in n:
+                            base = p
+                        elif 'lora_A' in n:
+                            lora_A = p
+                        elif 'lora_B' in n:
+                            lora_B = p
+
+                        temp = cos(base, lora_B@lora_A)
+                        temp.requires_grad = False
+
+                        num_param += 1
+                        regu_loss += temp.norm()
+                    if 'lora_B' in n:
+                        flag = False
+                
+                if num_param > 0:
+                    regu_loss = regu_loss / num_param
+                else:
+                    regu_loss = 0
+                # logger.info('---------this is for test regu loss---------------')
+                # logger.info(outputs.loss)
+                # logger.info(regu_loss)
+                # logger.info("INFO")('---------this is for test regu loss---------------')
+                outputs.loss += orth_reg_weight * regu_loss
+        return outputs
 
     def _replace_module(self, parent, child_name, new_module, child):
         setattr(parent, child_name, new_module)

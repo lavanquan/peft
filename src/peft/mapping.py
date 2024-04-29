@@ -133,11 +133,11 @@ def get_peft_model(
         return PeftMixedModel(model, peft_config, adapter_name=adapter_name)
 
     if peft_config.task_type not in MODEL_TYPE_TO_PEFT_MODEL_MAPPING.keys() and not peft_config.is_prompt_learning:
-        print("CAI QUAN QUE GI VAY TROI")
+        # print("CAI QUAN QUE GI VAY TROI")
         return PeftModel(model, peft_config, adapter_name=adapter_name)
 
     if peft_config.is_prompt_learning:
-        print("MEO HIEU KIEU GI LUON")
+        # print("MEO HIEU KIEU GI LUON")
         peft_config = _prepare_prompt_learning_config(peft_config, model_config)
     return MODEL_TYPE_TO_PEFT_MODEL_MAPPING[peft_config.task_type](model, peft_config, adapter_name=adapter_name)
 

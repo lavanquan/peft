@@ -196,6 +196,7 @@ class LoraModel(BaseTuner):
 
     def forward(self, *args, **kwargs):
         logger.info('---------this is for test regu loss---------------')
+        print('---------this is for test regu loss---------------')
         outputs = self.model.forward(*args, **kwargs)
         print(self.peft_config)
         print("This is check point", self.active_adapter)
@@ -284,8 +285,7 @@ class LoraModel(BaseTuner):
                 # print(outputs.loss, regu_loss, orth_reg_weight)
                 outputs.loss += orth_reg_weight * regu_loss
 
-        # return outputs
-        return 0
+        return outputs
 
     def _replace_module(self, parent, child_name, new_module, child):
         setattr(parent, child_name, new_module)

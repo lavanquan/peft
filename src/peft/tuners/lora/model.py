@@ -195,11 +195,11 @@ class LoraModel(BaseTuner):
             self._replace_module(parent, target_name, new_module, target)
 
     def forward(self, *args, **kwargs):
-        # logger.info('---------this is for test regu loss---------------')
+        logger.info('---------this is for test regu loss---------------')
         outputs = self.model.forward(*args, **kwargs)
-        # print(self.peft_config)
-        # print(self.active_adapter)
-        # print(self.active_adapters)
+        print(self.peft_config)
+        print("This is check point", self.active_adapter)
+        print(self.active_adapters)
         if (getattr(outputs, "loss", None) is not None) and isinstance(outputs.loss, torch.Tensor):
             # Calculate the orthogonal regularization
             if self.peft_config[self.active_adapter].use_kd:
@@ -220,6 +220,7 @@ class LoraModel(BaseTuner):
                             base = p
                         elif 'lora_A' in n:
                             lora_A = p
+                            continue
                         elif 'lora_B' in n:
                             lora_B = p
 
@@ -240,7 +241,51 @@ class LoraModel(BaseTuner):
                 # logger.info(regu_loss)
                 # logger.info("INFO")('---------this is for test regu loss---------------')
                 outputs.loss += orth_reg_weight * regu_loss
-        return outputs
+
+            if self.peft_config[self.active_adapter].use_orthogonal:
+                orth_reg_weight = self.peft_config[self.active_adapter].orth_reg_weight
+                if orth_reg_weight <= 0:
+                    raise ValueError("orth_reg_weight should be greater than 0. ")
+                flag = False
+                regu_loss = 0
+                num_param = 0
+                cos = nn.CosineSimilarity(eps=1e-6)
+                for n, p in self.model.named_parameter():
+                    if 'base_layer' in n:
+                        flag = True
+                    if flag==True:
+                        if 'base_layer' in n:
+                            base = p
+                        elif 'lora_A' in n:
+                            lora_A = p
+                            continue
+                        elif 'lora_B' in n:
+                            lora_B = p
+
+                        # temp = cos(base, lora_B@lora_A)
+                        sqr_matrix = (base+lora_B@lora_A).T@(base+lora_B@lora_A)
+                        temp = torch.norm(torch.eyes(sqr_matrix.shape[0])-sqr_matrix)
+                        temp.requires_grad = False
+
+                        num_param += 1
+                        regu_loss += temp
+                    if 'lora_B' in n:
+                        flag = False
+                
+                if num_param > 0:
+                    regu_loss = regu_loss / num_param
+                else:
+                    regu_loss = 0
+                logger.info('---------this is for test regu loss---------------')
+                logger.info(outputs.loss)
+                logger.info(regu_loss)
+                logger.info("INFO")('---------this is for test regu loss---------------')
+                # print("---------check loss-------------")
+                # print(outputs.loss, regu_loss, orth_reg_weight)
+                outputs.loss += orth_reg_weight * regu_loss
+
+        # return outputs
+        return 0
 
     def _replace_module(self, parent, child_name, new_module, child):
         setattr(parent, child_name, new_module)

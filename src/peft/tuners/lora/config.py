@@ -301,6 +301,20 @@ class LoraConfig(PeftConfig):
         },
     )
 
+    use_orthogonal: bool = field(
+        default=False,
+        metadata={
+            "help": (
+                "Enable 'Weight-Decomposed Low-Rank Adaptation' (DoVeRA_Tuning). This technique decomposes the updates of the "
+                "weights into two parts, magnitude and direction. Direction is handled by normal LoRA, whereas the "
+                "magnitude is handled by a separate learnable parameter. This can improve the performance of LoRA, "
+                "especially at low ranks. Right now, DoVeRA_Tuning only supports non-quantized linear layers. DoVeRA_Tuning introduces "
+                "a bigger overhead than pure LoRA, so it is recommended to merge weights for inference. For more "
+                "information, see  https://arxiv.org/abs/2402.09353."
+            )
+        },
+    )
+
     orth_reg_weight: float = field(
         default=0.5, 
         metadata={"help": "The orthogonal regularization coefficient."}   

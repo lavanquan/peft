@@ -285,7 +285,8 @@ class LoraModel(BaseTuner):
                 # print(outputs.loss, regu_loss, orth_reg_weight)
                 outputs.loss += orth_reg_weight * regu_loss
 
-        return outputs
+        # return outputs
+        return 0
 
     def _replace_module(self, parent, child_name, new_module, child):
         setattr(parent, child_name, new_module)

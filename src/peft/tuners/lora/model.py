@@ -195,12 +195,12 @@ class LoraModel(BaseTuner):
             self._replace_module(parent, target_name, new_module, target)
 
     def forward(self, *args, **kwargs):
-        logger.info('---------this is for test regu loss---------------')
-        print('---------this is for test regu loss---------------')
+        # logger.info('---------this is for test regu loss---------------')
+        # print('---------this is for test regu loss---------------')
         outputs = self.model.forward(*args, **kwargs)
-        print(self.peft_config)
-        print("This is check point", self.active_adapter)
-        print(self.active_adapters)
+        # print(self.peft_config)
+        # print("This is check point", self.active_adapter)
+        # print(self.active_adapters)
         if (getattr(outputs, "loss", None) is not None) and isinstance(outputs.loss, torch.Tensor):
             # Calculate the orthogonal regularization
             if self.peft_config[self.active_adapter].use_kd:
@@ -277,10 +277,10 @@ class LoraModel(BaseTuner):
                     regu_loss = regu_loss / num_param
                 else:
                     regu_loss = 0
-                logger.info('---------this is for test regu loss---------------')
-                logger.info(outputs.loss)
-                logger.info(regu_loss)
-                logger.info("INFO")('---------this is for test regu loss---------------')
+                # logger.info('---------this is for test regu loss---------------')
+                # logger.info(outputs.loss)
+                # logger.info(regu_loss)
+                # logger.info("INFO")('---------this is for test regu loss---------------')
                 # print("---------check loss-------------")
                 # print(outputs.loss, regu_loss, orth_reg_weight)
                 outputs.loss += orth_reg_weight * regu_loss
